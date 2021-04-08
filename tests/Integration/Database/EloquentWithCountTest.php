@@ -74,6 +74,20 @@ class EloquentWithCountTest extends DatabaseTestCase
 
         $this->assertSame('select "one".*, (select count(*) from "two" where "one"."id" = "two"."one_id") as "twos_count" from "one"', $result);
     }
+
+    public function testRespectsJoins()
+    {
+        $one = Model1::create();
+
+        $one->twos()->create();
+        $one->twos()->create();
+
+        $this->assertCount(1, $one->twosWithJoin);
+
+        $one->loadCount('twosWithJoin');
+
+        $this->assertEquals(1, $one->twos_with_join_count);
+    }
 }
 
 class Model1 extends Model
@@ -85,6 +99,14 @@ class Model1 extends Model
     public function twos()
     {
         return $this->hasMany(Model2::class, 'one_id');
+    }
+
+    public function twosWithJoin()
+    {
+        return $this->twos()->leftJoin('two as two2', function ($q) {
+            $q->on('two2.one_id', '=', 'two.one_id')
+                ->on('two.id','>', 'two2.id');
+        })->whereNull('two2.id');
     }
 
     public function fours()
